@@ -12,7 +12,7 @@ colors = {'magenta': ((117, 202, 0), (165, 247, 233)),
           'yellow': ((0, 106, 0), (40, 255, 255)),
           'green': ((60, 0, 0), (91, 255, 255)),
           'code': ((0, 0, 0), (30, 255, 150))}
-way, way_col, nowPoint = '123', [], 0
+way, way_col, nowPoint = '213', [], 0
 x_center, y_center, x, y = 999, 999, 999, 999
 
 
@@ -228,32 +228,34 @@ def area_shape(color):
             shape_name = min(diffs, key=diffs.get)
             return shape_name
 
-
-def calc_turn_angle(color):
-    global angle
+def calc_angle(color):
     img = auv.get_image_bottom()
-    C = get_cont(img, colors[color])
-    C = list(filter(lambda x: cv.contourArea(x) > 1000, C))
-    if len(C) > 0:
-        r = cv.minAreaRect(C[0])
-        b = cv.boxPoints(r)
-        b = np.int0(b)
-        b0 = b.tolist()
-        lines = [[b0[0], b0[1]], [b0[1], b0[2]]]
-        lens = list(map(lambda l: (l[0][0] - l[1][0]) ** 2 + (l[0][1] - l[1][1]) ** 2, lines))
-        l = lines[lens.index(max(lens))]
-        x = l[0][0] - l[1][0]
-        z = int(np.sqrt(x ** 2 + y ** 2))
-        a = np.arccos(abs(x) / z)
-        a = int(a / np.pi * 180)
-        a = 180 - a if x > 0 else a
-        if angle is None:
-            keep_yaw(-999, 0, 1, 1)
-        if a == 90:
-            angle = auv.get_yaw()
-        print(angle, a)
+    cnt = get_cont(img, colors[color])
+    if cnt:
+        for contour in cnt:
+            rectangle = cv.minAreaRect(contour)
+            box = cv.boxPoints(rectangle)
+            box = np.int0(box)
+            cv.drawContours(img, [box], 0, (0, 0, 255), 3)
+            edge_first = np.int0((box[1][0] - box[0][0], box[1][1] - box[0][1]))
+            edge_second = np.int0((box[2][0] - box[1][0], box[2][1] - box[1][1]))
+            edge = edge_first
+            if cv.norm(edge_second) > cv.norm(edge_first):
+                edge = edge_second
+            angle = -((180.0 / math.pi * math.acos(edge[0] / (cv.norm((1, 0)) * cv.norm(edge)))) - 90)
         return angle
 
+def turn_to_fig(color):
+    power = calc_angle(color)
+    try:
+        auv.set_motor_power(1, -power)
+        auv.set_motor_power(2, power)
+    except:
+        pass
+    get_color(color)
+    centralize(color)
+    keep_depth(2.7, 30, 2)
+    return power
 
 def wayF():
     for i in range(3):
@@ -268,10 +270,7 @@ def wayF():
 wayF()
 print(way_col)
 while True:
-    angle = calc_turn_angle('yellow')
-    keep_depth(2.75, 20, 2)
-    keep_yaw(angle, 0, 1, 1)
-    go(angle, 30, 3, 2.75, 'yellow')
+    error = turn_to_fig(way_col[nowPoint])
+    # keep_yaw(angle, 0, 1, 1)
+    # go(angle, 30, 3, 2.75, 'yellow')
     # shape_name = area_shape('magenta')
-    get_color('yellow')
-    centralize('yellow')
