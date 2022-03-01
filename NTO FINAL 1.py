@@ -1,18 +1,18 @@
 # UnderWaterDogs
-
+import cv2.aruco
 import pymurapi as mur
 import time
 import cv2 as cv
+import cv2.aruco as aruco
 import math
 import numpy as np
 
 auv = mur.mur_init()
 degree, angle = 0, 0
 colors = {'magenta': ((117, 202, 0), (165, 247, 233)),
-          'yellow': ((0, 106, 0), (40, 255, 255)),
-          'green': ((60, 0, 0), (91, 255, 255)),
-          'code': ((0, 0, 0), (30, 255, 150))}
-way, way_col, nowPoint = '213', [], 0
+          'yellow': ((10, 220, 100), (30, 255, 255)),
+          'green': ((60, 0, 0), (91, 255, 255))}
+way, way_col, nowPoint = '', [], 0
 x_center, y_center, x, y = 999, 999, 999, 999
 
 
@@ -228,6 +228,7 @@ def area_shape(color):
             shape_name = min(diffs, key=diffs.get)
             return shape_name
 
+
 def calc_angle(color):
     img = auv.get_image_bottom()
     cnt = get_cont(img, colors[color])
@@ -236,7 +237,6 @@ def calc_angle(color):
             rectangle = cv.minAreaRect(contour)
             box = cv.boxPoints(rectangle)
             box = np.int0(box)
-            cv.drawContours(img, [box], 0, (0, 0, 255), 3)
             edge_first = np.int0((box[1][0] - box[0][0], box[1][1] - box[0][1]))
             edge_second = np.int0((box[2][0] - box[1][0], box[2][1] - box[1][1]))
             edge = edge_first
@@ -244,6 +244,7 @@ def calc_angle(color):
                 edge = edge_second
             angle = -((180.0 / math.pi * math.acos(edge[0] / (cv.norm((1, 0)) * cv.norm(edge)))) - 90)
         return angle
+
 
 def turn_to_fig(color):
     power = calc_angle(color)
@@ -257,20 +258,52 @@ def turn_to_fig(color):
     keep_depth(2.7, 30, 2)
     return power
 
+
 def wayF():
     for i in range(3):
-        if way[i] == '1':
+        if way[i + 2] == '1':
             way_col.append('green')
-        elif way[i] == '2':
+        elif way[i + 2] == '2':
             way_col.append('yellow')
         else:
             way_col.append('magenta')
 
 
+depthing(2.7, 5)
+# --------------scan aruco------------#
+while True:
+    img = auv.get_image_bottom()
+    arucoDict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_4X4_250)
+    arucoParams = cv2.aruco.DetectorParameters_create()
+    (corners, ids, rejected) = cv2.aruco.detectMarkers(img, arucoDict,
+                                                       parameters=arucoParams)
+    way = ids
+    way = str(way)
+    if ids is not None:
+        break
+# ---------------grabbing-------------#
 wayF()
 print(way_col)
+error = 1
+cn = 0
 while True:
+    if error == 0:
+        cn += 1
+        if cn == 16:
+            angle = auv.get_yaw()
+            auv.set_motor_power(1, 0)
+            auv.set_motor_power(2, 0)
+            break
+    else:
+        cn = 0
     error = turn_to_fig(way_col[nowPoint])
-    # keep_yaw(angle, 0, 1, 1)
-    # go(angle, 30, 3, 2.75, 'yellow')
-    # shape_name = area_shape('magenta')
+go(angle, 80, 4, 2.7, way_col[nowPoint])
+
+while True:
+    cnt = []
+    cnt = get_color(way_col[nowPoint])
+    keep_depth(2.7, 30, 2)
+    keep_yaw(angle, 40, 1, 1)
+    print(angle)
+    if cnt != []:
+        break
