@@ -1,3 +1,5 @@
+# UnderWaterDogs
+
 import pymurapi as mur
 import time
 import cv2 as cv
@@ -8,6 +10,8 @@ degree = 0
 colors = {'blue': ((130, 0, 0), (180, 255, 230)),
           'yellow': ((0, 0, 0), (30, 255, 205)),
           'green': ((60, 0, 0), (91, 255, 255))}
+x_center, y_center, x, y = 999, 999, 999, 999
+
 
 def clamp(v, min, max):
     if v > max:
@@ -102,7 +106,7 @@ def draw_cont(img, contour):
 def get_color(color):
     img = auv.get_image_bottom()
     cont_img = img.copy()
-    for name in colors:
+    for _ in colors:
         contours = get_cont(img, colors[color])
         if not contours:
             continue
@@ -112,23 +116,24 @@ def get_color(color):
     cv.imshow("cont", cont_img)
     cv.waitKey(1)
 
-def turn(degree, depth):
+
+def turn(degres, depth):
     timing = time.time()
     while True:
         get_color('green')
         keep_depth(depth, 70, 5)
-        keep_yaw(degree, 0, 0.8, 0.5)
+        keep_yaw(degres, 0, 0.8, 0.5)
         if time.time() - timing > 8:
             timing = time.time()
             break
 
 
-def go(degree, power, time_, depth):
+def go(degres, power, time_, depth):
     timing = time.time()
     while True:
         get_color('green')
         keep_depth(depth, 50, 7)
-        keep_yaw(degree, power, 0.8, 0.5)
+        keep_yaw(degres, power, 0.8, 0.5)
         if time.time() - timing > time_:
             timing = time.time()
             break
@@ -178,5 +183,3 @@ def stopCenterlize(color):
         auv.set_motor_power(1, 0)
         auv.set_motor_power(4, 0)
         return True
-
-
