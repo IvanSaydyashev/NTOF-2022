@@ -4,12 +4,15 @@ import pymurapi as mur
 import time
 import cv2 as cv
 import math
+import numpy as np
 
 auv = mur.mur_init()
-degree = 0
-colors = {'blue': ((130, 0, 0), (180, 255, 230)),
-          'yellow': ((0, 0, 0), (30, 255, 205)),
-          'green': ((60, 0, 0), (91, 255, 255))}
+degree, angle = 0, 0
+colors = {'magenta': ((117, 202, 0), (165, 247, 233)),
+          'yellow': ((0, 106, 0), (40, 255, 255)),
+          'green': ((60, 0, 0), (91, 255, 255)),
+          'code': ((0, 0, 0), (30, 255, 150))}
+way, way_col, nowPoint = '123', [], 0
 x_center, y_center, x, y = 999, 999, 999, 999
 
 
@@ -89,7 +92,7 @@ def draw_cont(img, contour):
     global x_center, y_center, x, y
     if cv.contourArea(contour) < 100:
         return
-    cv.drawContours(img, [contour], 0, (255, 255, 255), 2)
+    cv.drawContours(img, [contour], 0, (0, 0, 0), 2)
     moments = cv.moments(contour)
     xm1 = moments['m10']
     xm2 = moments['m00']
@@ -115,6 +118,7 @@ def get_color(color):
     cv.imshow("gen", img)
     cv.imshow("cont", cont_img)
     cv.waitKey(1)
+    return contours
 
 
 def turn(degres, depth):
@@ -128,13 +132,19 @@ def turn(degres, depth):
             break
 
 
-def go(degres, power, time_, depth):
+def go(degres, power, time_, depth, color):
+    global angle
     timing = time.time()
     while True:
-        get_color('green')
+        cnt = get_color(color)
         keep_depth(depth, 50, 7)
         keep_yaw(degres, power, 0.8, 0.5)
         if time.time() - timing > time_:
+            if cnt is not None:
+                try:
+                    angle = (angle + 180 + 180) % 360 - 180
+                except:
+                    pass
             timing = time.time()
             break
 
@@ -183,3 +193,85 @@ def stopCenterlize(color):
         auv.set_motor_power(1, 0)
         auv.set_motor_power(4, 0)
         return True
+
+
+def area_shape(color):
+    img = auv.get_image_bottom()
+    contours = get_cont(img, colors[color])
+    if contours:
+        for cnt in contours:
+            area = cv.contourArea(cnt)
+            if area < 500:
+                continue
+            (circle_x, circle_y), circle_radius = cv.minEnclosingCircle(cnt)
+            circle_area = circle_radius ** 2 * math.pi
+            rectangle = cv.minAreaRect(cnt)
+            box = cv.boxPoints(rectangle)
+            box = np.int0(box)
+            rectangle_area = cv.contourArea(box)
+            rect_w, rect_h = rectangle[1][0], rectangle[1][1]
+            aspect_ratio = max(rect_w, rect_h) / min(rect_w, rect_h)
+            try:
+                triangle = cv.minEnclosingTriangle(cnt)[1]
+                triangle = np.int0(triangle)
+                triangle_area = cv.contourArea(triangle)
+            except:
+                triangle_area = 0
+            shapes_areas = {
+                'circle': circle_area,
+                'rectangle' if aspect_ratio > 1.25 else 'square': rectangle_area,
+                'triangle': triangle_area,
+            }
+            diffs = {
+                name: abs(area - shapes_areas[name]) for name in shapes_areas
+            }
+            shape_name = min(diffs, key=diffs.get)
+            return shape_name
+
+
+def calc_turn_angle(color):
+    global angle
+    img = auv.get_image_bottom()
+    C = get_cont(img, colors[color])
+    C = list(filter(lambda x: cv.contourArea(x) > 1000, C))
+    if len(C) > 0:
+        r = cv.minAreaRect(C[0])
+        b = cv.boxPoints(r)
+        b = np.int0(b)
+        b0 = b.tolist()
+        lines = [[b0[0], b0[1]], [b0[1], b0[2]]]
+        lens = list(map(lambda l: (l[0][0] - l[1][0]) ** 2 + (l[0][1] - l[1][1]) ** 2, lines))
+        l = lines[lens.index(max(lens))]
+        x = l[0][0] - l[1][0]
+        z = int(np.sqrt(x ** 2 + y ** 2))
+        a = np.arccos(abs(x) / z)
+        a = int(a / np.pi * 180)
+        a = 180 - a if x > 0 else a
+        if angle is None:
+            keep_yaw(-999, 0, 1, 1)
+        if a == 90:
+            angle = auv.get_yaw()
+        print(angle, a)
+        return angle
+
+
+def wayF():
+    for i in range(3):
+        if way[i] == '1':
+            way_col.append('green')
+        elif way[i] == '2':
+            way_col.append('yellow')
+        else:
+            way_col.append('magenta')
+
+
+wayF()
+print(way_col)
+while True:
+    angle = calc_turn_angle('yellow')
+    keep_depth(2.75, 20, 2)
+    keep_yaw(angle, 0, 1, 1)
+    go(angle, 30, 3, 2.75, 'yellow')
+    # shape_name = area_shape('magenta')
+    get_color('yellow')
+    centralize('yellow')
