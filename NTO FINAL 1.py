@@ -12,7 +12,8 @@ degree, angle = 0, 0
 colors = {'magenta': ((117, 202, 0), (165, 247, 233)),
           'yellow': ((10, 220, 100), (30, 255, 255)),
           'green': ((60, 0, 0), (91, 255, 255)),
-          'blue': ((130, 0, 0), (180, 255, 230))}
+          'blue': ((130, 0, 0), (180, 255, 230)),
+          'code': ((0, 0, 0), (60, 40, 40))}
 way, way_col, nowPoint = '', [], 0
 x_center, y_center, x, y = 999, 999, 999, 999
 
@@ -271,6 +272,7 @@ def wayF():
 
 # --------------scan aruco------------#
 while True:
+    keep_depth(2.7, 20, 1)
     img = auv.get_image_bottom()
     arucoDict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_4X4_1000)
     arucoParams = cv2.aruco.DetectorParameters_create()
@@ -285,51 +287,87 @@ wayF()
 print(way_col)
 error = 1
 cn = 0
-while True:
-    if error == 0:
-        cn += 1
-        if cn >= 16:
-            angle = auv.get_yaw()
-            auv.set_motor_power(1, 0)
-            auv.set_motor_power(2, 0)
+for i in range(3):
+    angle += 180
+    turn(angle, 2.7)
+    while True:
+        if error == 0:
+            cn += 1
+            if cn >= 16:
+                angle = auv.get_yaw()
+                auv.set_motor_power(1, 0)
+                auv.set_motor_power(2, 0)
+                break
+        else:
+            cn = 0
+        error = turn_to_fig(way_col[nowPoint])
+    while True:
+        keep_depth(2.7, 50, 1)
+        keep_yaw(angle, 80, 1, 1)
+        get_color(way_col[nowPoint])
+        shape = area_shape(way_col[nowPoint])
+        if shape == 'circle':
+            keep_yaw(angle, -100, 1, 1)
+            time.sleep(1)
+            keep_yaw(angle, 0, 1, 1)
             break
-    else:
-        cn = 0
-    error = turn_to_fig(way_col[nowPoint])
-while True:
-    keep_depth(2.7, 50, 1)
-    keep_yaw(angle, 80, 1, 1)
-    get_color(way_col[nowPoint])
-    shape = area_shape(way_col[nowPoint])
-    if shape == 'circle':
-        keep_yaw(angle, -100, 1, 1)
-        time.sleep(1)
+    while True:
+        s = centralize(way_col[nowPoint])
+        get_color(way_col[nowPoint])
+        keep_depth(3.3, 20, 1)
         keep_yaw(angle, 0, 1, 1)
-        break
-while True:
-    get_color(way_col[nowPoint])
-    keep_depth(3.3, 20, 1)
-    keep_yaw(angle, 0, 1, 1)
-    if centralize(way_col[nowPoint]):
-        break
-print(1)
-while True:
-    cnt = get_color('blue')
-    if centralize('blue'):
-        break
-auv.open_grabber()
-auv.set_motor_power(0, 0)
-auv.set_motor_power(1, 0)
-auv.set_motor_power(4, 0)
-while True:
-    keep_depth(3.75, 30, 2)
-    print(auv.get_depth())
-    if auv.get_depth() > 3.7:
-        auv.close_grabber()
-        time.sleep(2)
-        break
-while True:
-    keep_depth(2.7, 20, 1)
-    get_color(way_col[nowPoint])
-    keep_yaw(angle+180, 0, 1, 1)
-    centralize(way_col[nowPoint])
+        if s:
+            break
+    print(1)
+    while True:
+        cnt = get_color('blue')
+        if centralize('blue'):
+            break
+    auv.open_grabber()
+    auv.set_motor_power(0, 0)
+    auv.set_motor_power(1, 0)
+    auv.set_motor_power(4, 0)
+    # while True:
+    #     keep_depth(3.75, 30, 2)
+    #     depth = auv.get_depth()
+    #     if depth > 3.7:
+    #         auv.close_grabber()
+    #         time.sleep(2)
+    #         break
+    depthing(3.7, 5)
+    auv.close_grabber()
+    time.sleep(1)
+    angle+=180
+    сn = 0
+    print(22)
+    turn(angle, 2.7)
+    error = 9
+    while True:
+        if error == 0:
+            cn += 1
+            if cn >= 16:
+                angle = auv.get_yaw()
+                auv.set_motor_power(1, 0)
+                auv.set_motor_power(2, 0)
+                break
+        else:
+            cn = 0
+        error = turn_to_fig(way_col[nowPoint])
+    print(33)
+    while True:
+        keep_depth(2.7, 50, 1)
+        keep_yaw(angle, 80, 1, 1)
+        get_color('code')
+        shape = area_shape('code')
+        if shape == 'rectangle':
+            keep_yaw(angle, -100, 1, 1)
+            time.sleep(1)
+            keep_yaw(angle, 0, 1, 1)
+            break
+    while True:
+        auv.open_grabber()
+        get_color('code')
+        keep_depth(2.2, 20, 1)
+        if centralize('code'):
+            break
+    nowPoint += 1
