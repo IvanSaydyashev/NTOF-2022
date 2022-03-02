@@ -9,8 +9,8 @@ import pymurapi as mur
 
 auv = mur.mur_init()
 degree, angle = 0, 0
-colors = {'magenta': ((117, 202, 0), (165, 247, 233)),
-          'yellow': ((10, 220, 100), (30, 255, 255)),
+colors = {'magenta': ((117, 202, 100), (165, 247, 233)),
+          'yellow': ((10, 220, 50), (30, 255, 255)),
           'green': ((60, 0, 0), (91, 255, 255)),
           'blue': ((130, 0, 0), (180, 255, 230)),
           'code': ((0, 0, 0), (60, 40, 40))}
@@ -118,17 +118,17 @@ def get_color(color):
             draw_cont(cont_img, cnt)
     cv.imshow("gen", img)
     cv.imshow("cont", cont_img)
-    cv.waitKey(1)
+    cv.waitKey(50)
     return contours
 
 
-def turn(degres, depth):
+def turn(degres, depth, time_):
     timing = time.time()
     while True:
         get_color('green')
         keep_depth(depth, 70, 5)
         keep_yaw(degres, 0, 0.8, 0.5)
-        if time.time() - timing > 8:
+        if time.time() - timing > time_:
             timing = time.time()
             break
 
@@ -154,8 +154,7 @@ def depthing(depth, time_):
     timing = time.time()
     while True:
         get_color('green')
-        keep_yaw(degree, 0, 0.8, 0.5)
-        keep_depth(depth, 40, 6)
+        keep_depth(depth, 20, 2.5)
         if time.time() - timing > time_:
             timing = time.time()
             break
@@ -167,33 +166,27 @@ def centralize(color):
     try:
         get_color(color)
         lenght = math.sqrt(x_center ** 2 + y_center ** 2)
-        if lenght < 5.0:
+        if lenght < 10.0:
+            auv.set_motor_power(0, 0)
+            auv.set_motor_power(1, 0)
+            auv.set_motor_power(4, 0)
             return True
         outForward = centralize.regForward.process(y_center)
-        outForward = clamp(outForward, -20, 20)
+        outForward = clamp(outForward, -10, 10)
         outSide = centralize.regSide.process(x_center)
-        outSide = clamp(outSide, -20, 20)
+        outSide = clamp(outSide, -10, 10)
         auv.set_motor_power(0, -outForward)
         auv.set_motor_power(1, -outForward)
         auv.set_motor_power(4, -outSide)
     except:
         centralize.regForward = PD()
-        centralize.regForward.set_p(0.3)
+        centralize.regForward.set_p(0.15)
         centralize.regForward.set_d(0.1)
 
         centralize.regSide = PD()
-        centralize.regSide.set_p(0.2)
-        centralize.regSide.set_d(0.25)
+        centralize.regSide.set_p(0.1)
+        centralize.regSide.set_d(0.15)
     return False
-
-
-def stopCenterlize(color):
-    centralize(color)
-    if centralize(color):
-        auv.set_motor_power(0, 0)
-        auv.set_motor_power(1, 0)
-        auv.set_motor_power(4, 0)
-        return True
 
 
 def area_shape(color):
@@ -256,7 +249,7 @@ def turn_to_fig(color):
         pass
     get_color(color)
     centralize(color)
-    keep_depth(2.7, 30, 2)
+    keep_depth(2.5, 30, 2)
     return power
 
 
@@ -270,6 +263,7 @@ def wayF():
             way_col.append('magenta')
 
 
+st_ang = auv.get_yaw()
 # --------------scan aruco------------#
 while True:
     keep_depth(2.7, 20, 1)
@@ -285,13 +279,13 @@ while True:
 # ---------------grabbing-------------#
 wayF()
 print(way_col)
-error = 1
-cn = 0
 for i in range(3):
-    angle += 180
-    turn(angle, 2.7)
+    error = 1
+    cn = 0
+    if i != 0:
+        turn(st_ang, 2.4, 30)
     while True:
-        if error == 0:
+        if -1 < error < 1:
             cn += 1
             if cn >= 16:
                 angle = auv.get_yaw()
@@ -302,19 +296,19 @@ for i in range(3):
             cn = 0
         error = turn_to_fig(way_col[nowPoint])
     while True:
-        keep_depth(2.7, 50, 1)
+        keep_depth(2.6, 50, 1)
         keep_yaw(angle, 80, 1, 1)
         get_color(way_col[nowPoint])
         shape = area_shape(way_col[nowPoint])
         if shape == 'circle':
             keep_yaw(angle, -100, 1, 1)
-            time.sleep(1)
+            time.sleep(1.5)
             keep_yaw(angle, 0, 1, 1)
             break
     while True:
         s = centralize(way_col[nowPoint])
         get_color(way_col[nowPoint])
-        keep_depth(3.3, 20, 1)
+        keep_depth(3.1, 20, 1)
         keep_yaw(angle, 0, 1, 1)
         if s:
             break
@@ -334,26 +328,12 @@ for i in range(3):
     #         auv.close_grabber()
     #         time.sleep(2)
     #         break
-    depthing(3.7, 5)
+    depthing(3.8, 8)
     auv.close_grabber()
     time.sleep(1)
-    angle+=180
-    сn = 0
+    angle += 180
     print(22)
-    turn(angle, 2.7)
-    error = 9
-    while True:
-        if error == 0:
-            cn += 1
-            if cn >= 16:
-                angle = auv.get_yaw()
-                auv.set_motor_power(1, 0)
-                auv.set_motor_power(2, 0)
-                break
-        else:
-            cn = 0
-        error = turn_to_fig(way_col[nowPoint])
-    print(33)
+    turn(angle, 2.7, 30)
     while True:
         keep_depth(2.7, 50, 1)
         keep_yaw(angle, 80, 1, 1)
