@@ -11,7 +11,8 @@ auv = mur.mur_init()
 degree, angle = 0, 0
 colors = {'magenta': ((117, 202, 0), (165, 247, 233)),
           'yellow': ((10, 220, 100), (30, 255, 255)),
-          'green': ((60, 0, 0), (91, 255, 255))}
+          'green': ((60, 0, 0), (91, 255, 255)),
+          'blue': ((130, 0, 0), (180, 255, 230))}
 way, way_col, nowPoint = '', [], 0
 x_center, y_center, x, y = 999, 999, 999, 999
 
@@ -166,7 +167,7 @@ def centralize(color):
     try:
         get_color(color)
         lenght = math.sqrt(x_center ** 2 + y_center ** 2)
-        if lenght < 2.0:
+        if lenght < 5.0:
             return True
         outForward = centralize.regForward.process(y_center)
         outForward = clamp(outForward, -20, 20)
@@ -269,11 +270,10 @@ def wayF():
             way_col.append('magenta')
 
 
-depthing(2.7, 5)
 # --------------scan aruco------------#
 while True:
     img = auv.get_image_bottom()
-    arucoDict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_4X4_250)
+    arucoDict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_4X4_1000)
     arucoParams = cv2.aruco.DetectorParameters_create()
     (corners, ids, rejected) = cv2.aruco.detectMarkers(img, arucoDict,
                                                        parameters=arucoParams)
@@ -297,13 +297,26 @@ while True:
     else:
         cn = 0
     error = turn_to_fig(way_col[nowPoint])
-go(angle, 80, 4, 2.7, way_col[nowPoint])
-
 while True:
-    cnt = []
-    cnt = get_color(way_col[nowPoint])
-    keep_depth(2.7, 30, 2)
-    keep_yaw(angle, 40, 1, 1)
-    print(angle)
-    if cnt != []:
+    keep_depth(2.7, 50, 1)
+    keep_yaw(angle, 80, 1, 1)
+    get_color(way_col[nowPoint])
+    shape = area_shape(way_col[nowPoint])
+    if shape == 'circle':
+        keep_yaw(angle, -100, 1, 1)
+        time.sleep(1)
+        keep_yaw(angle, 0, 1, 1)
         break
+while True:
+    get_color(way_col[nowPoint])
+    keep_depth(2.7, 20, 1)
+    keep_yaw(angle, 0, 1, 1)
+    if centralize(way_col[nowPoint]):
+        break
+while True:
+    auv.open_grabber()
+    centralize('blue')
+while True:
+    keep_depth(3.7, 15, 2)
+    if auv.get_depth() > 3.6:
+        auv.close_grabber()
