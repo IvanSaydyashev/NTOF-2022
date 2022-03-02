@@ -1,11 +1,11 @@
 # UnderWaterDogs
-import cv2.aruco
-import pymurapi as mur
-import time
-import cv2 as cv
-import cv2.aruco as aruco
 import math
+import time
+
+import cv2 as cv
+import cv2.aruco
 import numpy as np
+import pymurapi as mur
 
 auv = mur.mur_init()
 degree, angle = 0, 0
@@ -104,7 +104,6 @@ def draw_cont(img, contour):
     x_center = x - (320 / 2)
     y_center = y - (240 / 2)
     cv.circle(img, (x, y), 3, (0, 0, 255), -1)
-    return x_center, y_center, x, y
 
 
 def get_color(color):
@@ -289,7 +288,7 @@ cn = 0
 while True:
     if error == 0:
         cn += 1
-        if cn == 16:
+        if cn >= 16:
             angle = auv.get_yaw()
             auv.set_motor_power(1, 0)
             auv.set_motor_power(2, 0)
@@ -309,14 +308,28 @@ while True:
         break
 while True:
     get_color(way_col[nowPoint])
-    keep_depth(2.7, 20, 1)
+    keep_depth(3.3, 20, 1)
     keep_yaw(angle, 0, 1, 1)
     if centralize(way_col[nowPoint]):
         break
+print(1)
 while True:
-    auv.open_grabber()
-    centralize('blue')
+    cnt = get_color('blue')
+    if centralize('blue'):
+        break
+auv.open_grabber()
+auv.set_motor_power(0, 0)
+auv.set_motor_power(1, 0)
+auv.set_motor_power(4, 0)
 while True:
-    keep_depth(3.7, 15, 2)
-    if auv.get_depth() > 3.6:
+    keep_depth(3.75, 30, 2)
+    print(auv.get_depth())
+    if auv.get_depth() > 3.7:
         auv.close_grabber()
+        time.sleep(2)
+        break
+while True:
+    keep_depth(2.7, 20, 1)
+    get_color(way_col[nowPoint])
+    keep_yaw(angle+180, 0, 1, 1)
+    centralize(way_col[nowPoint])
