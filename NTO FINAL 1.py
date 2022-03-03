@@ -270,14 +270,14 @@ st_ang = auv.get_yaw()
 while True:
     keep_depth(2.7, 20, 1)
     img = auv.get_image_bottom()
-    arucoDict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_4X4_1000)
-    arucoParams = cv2.aruco.DetectorParameters_create()
-    (corners, ids, rejected) = cv2.aruco.detectMarkers(img, arucoDict,
+    arucoDict = cv.aruco.Dictionary_get(cv.aruco.DICT_4X4_1000)
+    arucoParams = cv.aruco.DetectorParameters_create()
+    (corners, ids, rejected) = cv.aruco.detectMarkers(img, arucoDict,
                                                        parameters=arucoParams)
     way = ids
     way = str(way)
-    if ids is not None:
-        break
+    # if ids is not None:
+    #     break
 # ---------------grabbing-------------#
 wayF()
 print(way_col)
@@ -287,15 +287,26 @@ for i in range(3):
     if i != 0:
         cc = 0
         while True:
-            _, imge = get_color(way_col[nowPoint])
-            keep_depth(1.8, 20, 1)
-            keep_yaw(st_ang, 0, 1, 1)
-            if st_ang - 5 < auv.get_yaw() < st_ang + 5:
-                cc += 1
-                if cc >= 15:
-                    break
+            if y_center < 120:
+                _, imge = get_color(way_col[nowPoint])
+                keep_depth(1.8, 20, 1)
+                keep_yaw(st_ang, 0, 1, 1)
+                if st_ang - 5 < auv.get_yaw() < st_ang + 5:
+                    cc += 1
+                    if cc >= 15:
+                        break
+                else:
+                    cc = 0
             else:
-                cc = 0
+                _, imge = get_color(way_col[nowPoint])
+                keep_depth(1.8, 20, 1)
+                keep_yaw(angle, 0, 1, 1)
+                if st_angle - 5 < auv.get_yaw() < st_ang + 5:
+                    cc += 1
+                    if cc >= 15:
+                        break
+                else:
+                    cc = 0
     while True:
         if -1 < error < 1:
             cn += 1
@@ -343,13 +354,6 @@ for i in range(3):
     auv.set_motor_power(0, 0)
     auv.set_motor_power(1, 0)
     auv.set_motor_power(4, 0)
-    # while True:
-    #     keep_depth(3.75, 30, 2)
-    #     depth = auv.get_depth()
-    #     if depth > 3.7:
-    #         auv.close_grabber()
-    #         time.sleep(2)
-    #         break
     depthing(3.8, 8)
     auv.close_grabber()
     time.sleep(1)
