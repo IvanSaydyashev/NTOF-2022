@@ -62,14 +62,16 @@ def keep_depth(depth, P, D):
         keep_depth.reg.set_d(D)
 
 
-def keep_yaw(yaw, power, P, D):
-    def to_180(angle):
-        if angle > 180.0:
-            return angle - 360
-        if angle < -180.0:
-            return angle + 360
-        return angle
+def to_180(angle):
+    if angle > 180.0:
+        return angle - 360
+    if angle < -180.0:
+        return angle + 360
+    return angle
 
+
+def keep_yaw(yaw, power, P, D):
+    to_180(yaw)
     try:
         error = auv.get_yaw() - yaw
         error = to_180(error)
@@ -106,7 +108,6 @@ def draw_cont(img, contour):
     y_center = y - (240 / 2)
     cv.circle(img, (x, y), 3, (0, 0, 255), -1)
 
-
 def get_color(color):
     img = auv.get_image_bottom()
     cont_img = img.copy()
@@ -118,8 +119,8 @@ def get_color(color):
             draw_cont(cont_img, cnt)
     cv.imshow("gen", img)
     cv.imshow("cont", cont_img)
-    cv.waitKey(50)
-    return contours
+    cv.waitKey(1)
+    return contours, img
 
 
 def turn(degres, depth, time_):
@@ -160,9 +161,10 @@ def depthing(depth, time_):
             break
 
 
-def centralize(color):
+def centralize(color, depth):
     x_center = x - (320 / 2)
     y_center = y - (240 / 2) + 22
+    keep_depth(depth, 20, 1)
     try:
         get_color(color)
         lenght = math.sqrt(x_center ** 2 + y_center ** 2)
@@ -189,8 +191,7 @@ def centralize(color):
     return False
 
 
-def area_shape(color):
-    img = auv.get_image_bottom()
+def area_shape(color, img):
     contours = get_cont(img, colors[color])
     if contours:
         for cnt in contours:
@@ -223,9 +224,8 @@ def area_shape(color):
             return shape_name
 
 
-def calc_angle(color):
-    img = auv.get_image_bottom()
-    cnt = get_cont(img, colors[color])
+def calc_angle(color, imge):
+    cnt = get_cont(imge, colors[color])
     if cnt:
         for contour in cnt:
             rectangle = cv.minAreaRect(contour)
@@ -241,15 +241,17 @@ def calc_angle(color):
 
 
 def turn_to_fig(color):
-    power = calc_angle(color)
-    try:
-        auv.set_motor_power(1, -power)
-        auv.set_motor_power(2, power)
-    except:
-        pass
-    get_color(color)
-    centralize(color)
-    keep_depth(2.5, 30, 2)
+    _, imge = get_color(color)
+    power = calc_angle(color, imge)
+    shape = area_shape(color, imge)
+    if shape != 'circle':
+        try:
+            auv.set_motor_power(1, -power * 1.5)
+            auv.set_motor_power(0, power * 1.5)
+        except:
+            pass
+    centralize(color, 3.1)
+    keep_depth(2, 30, 2)
     return power
 
 
@@ -283,7 +285,17 @@ for i in range(3):
     error = 1
     cn = 0
     if i != 0:
-        turn(st_ang, 2.4, 30)
+        cc = 0
+        while True:
+            _, imge = get_color(way_col[nowPoint])
+            keep_depth(1.8, 20, 1)
+            keep_yaw(st_ang, 0, 1, 1)
+            if st_ang - 5 < auv.get_yaw() < st_ang + 5:
+                cc += 1
+                if cc >= 15:
+                    break
+            else:
+                cc = 0
     while True:
         if -1 < error < 1:
             cn += 1
@@ -296,27 +308,37 @@ for i in range(3):
             cn = 0
         error = turn_to_fig(way_col[nowPoint])
     while True:
-        keep_depth(2.6, 50, 1)
+        keep_depth(2.4, 50, 1)
         keep_yaw(angle, 80, 1, 1)
-        get_color(way_col[nowPoint])
-        shape = area_shape(way_col[nowPoint])
+        _, img = get_color(way_col[nowPoint])
+        shape = area_shape(way_col[nowPoint], img)
         if shape == 'circle':
             keep_yaw(angle, -100, 1, 1)
             time.sleep(1.5)
             keep_yaw(angle, 0, 1, 1)
             break
     while True:
-        s = centralize(way_col[nowPoint])
+        s = centralize(way_col[nowPoint], 3.11)
         get_color(way_col[nowPoint])
-        keep_depth(3.1, 20, 1)
+        if way_col[nowPoint] != 'magenta':
+            keep_depth(3.1, 20, 1)
+        else:
+            keep_depth(2.5, 20, 1)
         keep_yaw(angle, 0, 1, 1)
         if s:
             break
-    print(1)
     while True:
-        cnt = get_color('blue')
-        if centralize('blue'):
-            break
+        img = auv.get_image_bottom()
+        shape = area_shape(way_col[nowPoint], img)
+        if way_col[nowPoint] != 'magenta':
+            cnt = get_color('blue')
+            if centralize('blue', 3.1):
+                break
+        else:
+            cnt = get_color('yellow')
+            print(shape)
+            if centralize('yellow', 2.9) and shape == 'triangle':
+                break
     auv.open_grabber()
     auv.set_motor_power(0, 0)
     auv.set_motor_power(1, 0)
@@ -332,14 +354,26 @@ for i in range(3):
     auv.close_grabber()
     time.sleep(1)
     angle += 180
-    print(22)
-    turn(angle, 2.7, 30)
+    angle = to_180(angle)
+    cc = 0
+    while True:
+        get_color(way_col[nowPoint])
+        keep_yaw(angle, 0, 1, 1)
+        keep_depth(2.7, 20, 1)
+        if angle - 5 < auv.get_yaw() < angle + 5:
+            cc += 1
+            if cc >= 15:
+                break
+        else:
+            cc = 0
+    go(angle, 20, 4, 2.7, way_col[nowPoint])
+    angle = auv.get_yaw()
     while True:
         keep_depth(2.7, 50, 1)
         keep_yaw(angle, 80, 1, 1)
-        get_color('code')
-        shape = area_shape('code')
-        if shape == 'rectangle':
+        _, img = get_color('code')
+        shape = area_shape('code', img)
+        if shape == 'rectangle' or shape == 'triangle':
             keep_yaw(angle, -100, 1, 1)
             time.sleep(1)
             keep_yaw(angle, 0, 1, 1)
@@ -347,7 +381,9 @@ for i in range(3):
     while True:
         auv.open_grabber()
         get_color('code')
-        keep_depth(2.2, 20, 1)
-        if centralize('code'):
+        keep_depth(1.5, 20, 1)
+        if centralize('code', 1.6):
             break
     nowPoint += 1
+while True:
+    keep_depth(0, 20, 1)
