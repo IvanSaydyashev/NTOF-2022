@@ -9,10 +9,10 @@ import pymurapi as mur
 
 auv = mur.mur_init()
 degree, angle = 0, 0
-colors = {'magenta': ((117, 202, 100), (165, 247, 233)),
+colors = {'magenta': ((133, 0, 0), (180, 255, 255)),
           'yellow': ((10, 220, 50), (30, 255, 255)),
           'green': ((60, 0, 0), (91, 255, 255)),
-          'blue': ((130, 0, 0), (180, 255, 230)),
+          'blue': ((130, 166, 0), (135, 255, 255)),
           'code': ((0, 0, 0), (60, 40, 40))}
 way, way_col, nowPoint = '', [], 0
 x_center, y_center, x, y = 999, 999, 999, 999
@@ -199,7 +199,7 @@ def area_shape(color, img):
             if area < 500:
                 continue
             (circle_x, circle_y), circle_radius = cv.minEnclosingCircle(cnt)
-            circle_area = circle_radius ** 2 * math.pi
+            circle_area = circle_radius ** 2 * math.pi - 0.5
             rectangle = cv.minAreaRect(cnt)
             box = cv.boxPoints(rectangle)
             box = np.int0(box)
@@ -214,7 +214,7 @@ def area_shape(color, img):
                 triangle_area = 0
             shapes_areas = {
                 'circle': circle_area,
-                'rectangle' if aspect_ratio > 1.25 else 'square': rectangle_area,
+                'rectangle' if aspect_ratio > 1.5 else 'square': rectangle_area,
                 'triangle': triangle_area,
             }
             diffs = {
@@ -268,7 +268,7 @@ def wayF():
 st_ang = auv.get_yaw()
 # --------------scan aruco------------#
 while True:
-    keep_depth(2.7, 20, 1)
+    keep_depth(2.2, 20, 1)
     img = auv.get_image_bottom()
     arucoDict = cv.aruco.Dictionary_get(cv.aruco.DICT_4X4_1000)
     arucoParams = cv.aruco.DetectorParameters_create()
@@ -276,57 +276,61 @@ while True:
                                                        parameters=arucoParams)
     way = ids
     way = str(way)
-    # if ids is not None:
-    #     break
+    if ids is not None:
+        break
 # ---------------grabbing-------------#
 wayF()
 print(way_col)
 for i in range(3):
-    error = 1
     cn = 0
-    if i != 0:
-        cc = 0
-        while True:
-            if y_center < 120:
-                _, imge = get_color(way_col[nowPoint])
-                keep_depth(1.8, 20, 1)
-                keep_yaw(st_ang, 0, 1, 1)
-                if st_ang - 5 < auv.get_yaw() < st_ang + 5:
-                    cc += 1
-                    if cc >= 15:
-                        break
-                else:
-                    cc = 0
-            else:
-                _, imge = get_color(way_col[nowPoint])
-                keep_depth(1.8, 20, 1)
-                keep_yaw(angle, 0, 1, 1)
-                if st_angle - 5 < auv.get_yaw() < st_ang + 5:
-                    cc += 1
-                    if cc >= 15:
-                        break
-                else:
-                    cc = 0
+    cc = 0
     while True:
-        if -1 < error < 1:
-            cn += 1
-            if cn >= 16:
-                angle = auv.get_yaw()
-                auv.set_motor_power(1, 0)
-                auv.set_motor_power(2, 0)
+        _, imge = get_color(way_col[nowPoint])
+        keep_depth(1.8, 20, 1)
+        keep_yaw(st_ang, 0, 1, 1)
+        if st_ang - 5 < auv.get_yaw() < st_ang + 5:
+            cc += 1
+            if cc >= 15:
                 break
         else:
-            cn = 0
-        error = turn_to_fig(way_col[nowPoint])
+            cc = 0
+    cc = 0
+    if y_center > 100:
+        while True:
+            _, imge = get_color(way_col[nowPoint])
+            keep_depth(1.8, 20, 1)
+            st_ange = to_180(st_ang+180)
+            keep_yaw(st_ange, 0, 1, 1)
+            if st_ange - 5 < auv.get_yaw() < st_ange + 5:
+                cc += 1
+                if cc >= 15:
+                    go(st_ang+180, 20, 1, 1.8, way_col[nowPoint])
+                    break
+            else:
+                cc = 0
+    error = 1
+    while True:
+        try:
+            if -1 < error < 1:
+                cn += 1
+                if cn >= 16:
+                    angle = auv.get_yaw()
+                    auv.set_motor_power(1, 0)
+                    auv.set_motor_power(2, 0)
+                    break
+            else:
+                cn = 0
+            error = turn_to_fig(way_col[nowPoint])
+        except:
+            pass
     while True:
         keep_depth(2.4, 50, 1)
         keep_yaw(angle, 80, 1, 1)
         _, img = get_color(way_col[nowPoint])
         shape = area_shape(way_col[nowPoint], img)
         if shape == 'circle':
-            keep_yaw(angle, -100, 1, 1)
-            time.sleep(1.5)
-            keep_yaw(angle, 0, 1, 1)
+            auv.set_motor_power(0, 0)
+            auv.set_motor_power(1, 0)
             break
     while True:
         s = centralize(way_col[nowPoint], 3.11)
@@ -340,16 +344,18 @@ for i in range(3):
             break
     while True:
         img = auv.get_image_bottom()
-        shape = area_shape(way_col[nowPoint], img)
+        shape = area_shape('blue', img)
         if way_col[nowPoint] != 'magenta':
             cnt = get_color('blue')
-            if centralize('blue', 3.1):
+            if centralize('blue', 3.3):
                 break
         else:
-            cnt = get_color('yellow')
-            print(shape)
-            if centralize('yellow', 2.9) and shape == 'triangle':
+            cnt = get_color('blue')
+            if centralize('blue', 3.3) and shape == 'circle':
                 break
+            elif centralize('blue', 3.3) and shape != 'circle':
+                gr_ang = auv.get_yaw()
+                go(gr_ang, -30, 1, 3.3, 'blue')
     auv.open_grabber()
     auv.set_motor_power(0, 0)
     auv.set_motor_power(1, 0)
@@ -378,8 +384,7 @@ for i in range(3):
         _, img = get_color('code')
         shape = area_shape('code', img)
         if shape == 'rectangle' or shape == 'triangle':
-            keep_yaw(angle, -100, 1, 1)
-            time.sleep(1)
+            go(angle, -100, 1, 2.7, 'code')
             keep_yaw(angle, 0, 1, 1)
             break
     while True:
