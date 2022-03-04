@@ -168,7 +168,7 @@ def centralize(color, depth):
     try:
         get_color(color)
         lenght = math.sqrt(x_center ** 2 + y_center ** 2)
-        if lenght < 10.0:
+        if lenght < 7.0:
             auv.set_motor_power(0, 0)
             auv.set_motor_power(1, 0)
             auv.set_motor_power(4, 0)
@@ -246,12 +246,12 @@ def turn_to_fig(color):
     shape = area_shape(color, imge)
     if shape != 'circle':
         try:
-            auv.set_motor_power(1, -power * 1.5)
-            auv.set_motor_power(0, power * 1.5)
+            auv.set_motor_power(1, -power)
+            auv.set_motor_power(0, power)
         except:
             pass
     centralize(color, 3.1)
-    keep_depth(2, 30, 2)
+    keep_depth(2.5, 30, 2)
     return power
 
 
@@ -311,9 +311,22 @@ for i in range(3):
     error = 1
     while True:
         try:
+            if y_center > 100:
+                while True:
+                    _, imge = get_color(way_col[nowPoint])
+                    keep_depth(1.8, 20, 1)
+                    st_ange = to_180(st_ang + 180)
+                    keep_yaw(st_ange, 0, 1, 1)
+                    if st_ange - 5 < auv.get_yaw() < st_ange + 5:
+                        cc += 1
+                        if cc >= 15:
+                            go(st_ang + 180, 20, 1, 1.8, way_col[nowPoint])
+                            break
+                    else:
+                        cc = 0
             if -1 < error < 1:
                 cn += 1
-                if cn >= 16:
+                if cn >= 16 and y_center < 100:
                     angle = auv.get_yaw()
                     auv.set_motor_power(1, 0)
                     auv.set_motor_power(2, 0)
@@ -338,7 +351,7 @@ for i in range(3):
         if way_col[nowPoint] != 'magenta':
             keep_depth(3.1, 20, 1)
         else:
-            keep_depth(2.5, 20, 1)
+            keep_depth(2.7, 20, 1)
         keep_yaw(angle, 0, 1, 1)
         if s:
             break
@@ -357,20 +370,25 @@ for i in range(3):
                 gr_ang = auv.get_yaw()
                 go(gr_ang, -30, 1, 3.3, 'blue')
     auv.open_grabber()
+    if way_col[nowPoint] == 'magenta':
+        try:
+            go(gr_ang, -10, 0.5, 3.3, 'blue')
+        except:
+            pass
     auv.set_motor_power(0, 0)
     auv.set_motor_power(1, 0)
     auv.set_motor_power(4, 0)
     depthing(3.8, 8)
     auv.close_grabber()
     time.sleep(1)
-    angle += 180
-    angle = to_180(angle)
+    angle = angle+180
+    angle_c = to_180(angle)
     cc = 0
     while True:
         get_color(way_col[nowPoint])
         keep_yaw(angle, 0, 1, 1)
         keep_depth(2.7, 20, 1)
-        if angle - 5 < auv.get_yaw() < angle + 5:
+        if angle_c - 5 < auv.get_yaw() < angle_c + 5:
             cc += 1
             if cc >= 15:
                 break
